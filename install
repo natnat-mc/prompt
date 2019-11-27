@@ -1,0 +1,18 @@
+#!/bin/sh
+if ! moonc prompt.moon; then
+	printf "Couldn't compile prompt to lua, ensure 'moonc' is installed and in your path\n" >&2
+	exit 1
+fi
+case `basename $SHELL` in
+	fish)
+		cp prompt.lua ~/.config/fish/
+		fish -c 'function fish_prompt --description "A powerline-like prompt"; lua ~/.config/fish/prompt.lua $status (pwd) (whoami) (hostname); end; funcsave fish_prompt'
+		;;
+	bash)
+		cp prompt.lua ~/.bash_prompt.lua
+		echo "PROMPT_COMMAND='PS1="\`lua ~/.bash_prompt.lua \$? \$PWD \$USER \$HOSTNAME oP\`"'" >> ~/.bashrc
+		;;
+	*)
+		printf "Shell not supported\n" >&2
+		exit 1
+esac

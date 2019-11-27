@@ -10,11 +10,13 @@ if arg[1]=='--help' or arg[1]=='-h'
 	io.write "For fish: function fish_prompt --description 'a powerline-like prompt for any shell'; moon #{scriptpath} $status (pwd) (whoami) (hostname); end\n"
 	os.exit 0
 
-{lastexit, cwd, username, hostname}=arg
+{lastexit, cwd, username, hostname, options}=arg
 lastexit=tonumber lastexit
+oneline=options and options\match 'o'
+nopowerline=options and options\match 'P'
 
-if #arg!=4
-	io.stderr\write "Usage: prompt <lastexit> <cwd> <username> <hostname>\n"
+if #arg!=4 and #arg!=5
+	io.stderr\write "Usage: prompt <lastexit> <cwd> <username> <hostname> [options]\n"
 	io.stderr\write "\tprompt --help\n"
 	os.exit 1
 
@@ -32,27 +34,15 @@ colors={
 	gitbranch: 'aa55aa'
 	gitstatus: 'aa88aa'
 }
+powerlineterminals={
+	'xterm-kitty': true
+}
 batterypath='/sys/class/power_supply/BAT1/capacity'
 
-hextable={
-	'0': 0
-	'1': 1
-	'2': 2
-	'3': 3
-	'4': 4
-	'5': 5
-	'6': 6
-	'7': 7
-	'8': 8
-	'9': 9
-	'a': 10
-	'b': 11
-	'c': 12
-	'd': 13
-	'e': 14
-	'f': 15
-}
+hextable={(tostring i), i for i=0, 9}
+hextable[string.char a+string.byte 'a']=a+10 for a=0, 5
 esc="#{string.char(0x1b)}["
+nopowerline=true unless powerlineterminals[os.getenv 'TERM']
 
 exec= (line) ->
 	a=os.execute line
@@ -105,13 +95,19 @@ shortenpath= (path) ->
 render= (blocks) ->
 	for i, block in ipairs blocks
 		io.write "#{getcolor block.color, true} #{block.text} "
-		if i==#blocks
-			io.write "#{esc}49m#{getcolor block.color, false}#{esc}0m "
+		if nopowerline
+			if i==#blocks
+				io.write "#{esc}0m "
+			else
+				io.write getcolor blocks[i+1]
 		else
-			io.write "#{getcolor block.color, false}#{getcolor blocks[i+1].color, true}#{esc}39m"
+			if i==#blocks
+				io.write "#{esc}49m#{getcolor block.color, false}#{esc}0m "
+			else
+				io.write "#{getcolor block.color, false}#{getcolor blocks[i+1].color, true}#{esc}39m"
 
+blocks={}
 do -- first line: status, time, username, hostname, directory
-	blocks={}
 	if lastexit==0
 		table.insert blocks, {text: 0, color: 'statusok'}
 	else
@@ -121,7 +117,9 @@ do -- first line: status, time, username, hostname, directory
 	table.insert blocks, {text: username, color: 'username'}
 	table.insert blocks, {text: hostname, color: 'hostname'}
 	table.insert blocks, {text: (shortenpath cwd), color: 'cwd'}
+unless oneline
 	render blocks
+	blocks={}
 
 do -- second line: git repo, git branch, git status
 	repo=execl 'git rev-parse --git-dir 2>/dev/null'
@@ -137,8 +135,8 @@ do -- second line: git repo, git branch, git status
 		else
 			changes..=' changes'
 		io.write '\n'
-		blocks={}
-		table.insert blocks, {text: repo, color: 'gitrepo'}
+		blocks={} unless oneline
+		table.insert blocks, {text: repo, color: 'gitrepo'} unless oneline
 		table.insert blocks, {text: branch, color: 'gitbranch'}
 		table.insert blocks, {text: changes, color: 'gitstatus'}
-		render blocks
+render blocks
