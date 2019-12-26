@@ -14,6 +14,7 @@ if arg[1]=='--help' or arg[1]=='-h'
 lastexit=tonumber lastexit
 oneline=options and options\match 'o'
 nopowerline=options and options\match 'P'
+dumbterminal=options and options\match 'd'
 
 if #arg!=4 and #arg!=5
 	io.stderr\write "Usage: prompt <lastexit> <cwd> <username> <hostname> [options]\n"
@@ -34,8 +35,26 @@ colors={
 	gitbranch: 'aa55aa'
 	gitstatus: 'aa88aa'
 }
+dumbcolors={
+	statusok: 2
+	statusko: 1
+	
+	battery: 5
+	time: 4
+	username: 3
+	hostname: 7
+	cwd: 4
+	
+	gitrepo: 5
+	gitbranch: 4
+	gitstatus: 2
+}
 powerlineterminals={
 	'xterm-kitty': true
+}
+goodterminals={
+	'xterm-kitty': true
+	'linux': true
 }
 batterypath='/sys/class/power_supply/BAT1/capacity'
 
@@ -43,6 +62,7 @@ hextable={(tostring i), i for i=0, 9}
 hextable[string.char a+string.byte 'a']=a+10 for a=0, 5
 esc="#{string.char(0x1b)}["
 nopowerline=true unless powerlineterminals[os.getenv 'TERM']
+dumbterminal=true unless goodterminals[os.getenv 'TERM']
 
 exec= (line) ->
 	a=os.execute line
@@ -73,6 +93,9 @@ hextodec= (hex) ->
 getcolor= (name, bg=false) ->
 	color=colors[name] or 'ffffff'
 	return "#{esc}#{bg and 48 or 38};2;#{hextodec color\sub 1, 2};#{hextodec color\sub 3, 4};#{hextodec color\sub 5, 6}m"
+getdumbcolor= (name) ->
+	color=dumbcolors[name] or '7'
+	return "#{esc}3#{color}m"
 
 shortenpath= (path) ->
 	if path=='/' or path=='.'
@@ -93,18 +116,23 @@ shortenpath= (path) ->
 	return table.concat sp, '/'
 
 render= (blocks) ->
-	for i, block in ipairs blocks
-		io.write "#{getcolor block.color, true} #{block.text} "
-		if nopowerline
-			if i==#blocks
-				io.write "#{esc}0m "
+	if dumbterminal
+		for i, block in ipairs blocks
+			io.write "#{getdumbcolor block.color} #{block.text}"
+		io.write "#{esc}0m "
+	else
+		for i, block in ipairs blocks
+			io.write "#{getcolor block.color, true} #{block.text} "
+			if nopowerline
+				if i==#blocks
+					io.write "#{esc}0m "
+				else
+					io.write getcolor blocks[i+1]
 			else
-				io.write getcolor blocks[i+1]
-		else
-			if i==#blocks
-				io.write "#{esc}49m#{getcolor block.color, false}#{esc}0m "
-			else
-				io.write "#{getcolor block.color, false}#{getcolor blocks[i+1].color, true}#{esc}39m"
+				if i==#blocks
+					io.write "#{esc}49m#{getcolor block.color, false}#{esc}0m "
+				else
+					io.write "#{getcolor block.color, false}#{getcolor blocks[i+1].color, true}#{esc}39m"
 
 blocks={}
 do -- first line: status, time, username, hostname, directory
