@@ -112,7 +112,7 @@ do -- first line: status, time, username, hostname, directory
 		table.insert blocks, {text: 0, color: 'statusok'}
 	else
 		table.insert blocks, {text: lastexit, color: 'statusko'}
-	table.insert blocks, {text: "#{readl batterypath}%", color: 'battery'}
+	pcall () -> table.insert blocks, {text: "#{readl batterypath}%", color: 'battery'}
 	table.insert blocks, {text: (os.date '%H:%M'), color: 'time'}
 	table.insert blocks, {text: username, color: 'username'}
 	table.insert blocks, {text: hostname, color: 'hostname'}
